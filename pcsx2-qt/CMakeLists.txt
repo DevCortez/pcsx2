@@ -39,6 +39,8 @@ target_sources(pcsx2-qt PRIVATE
 	ToolbarCustomizationDialog.h
 	ToolbarCustomizationDialog.ui
 	Translations.cpp
+	MCPBridge.cpp
+	MCPBridge.h
 	QtHost.cpp
 	QtHost.h
 	QtKeyCodes.cpp
@@ -190,6 +192,7 @@ target_sources(pcsx2-qt PRIVATE
 	Debugger/DebuggerView.cpp
 	Debugger/DebuggerView.h
 	Debugger/DebuggerWindow.cpp
+	Debugger/DebuggerStep.h
 	Debugger/DebuggerWindow.h
 	Debugger/DebuggerWindow.ui
 	Debugger/DisassemblyView.cpp

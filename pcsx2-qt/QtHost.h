@@ -129,7 +129,7 @@ Q_SIGNALS:
 	void onVMStarted();
 
 	/// Called when the VM is paused.
-	void onVMPaused();
+	void onVMPaused(int breakpoint_cpu, bool stepping, bool core_paused);
 
 	/// Called when the VM is resumed after being paused.
 	void onVMResumed();

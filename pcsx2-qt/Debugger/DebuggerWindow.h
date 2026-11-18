@@ -44,7 +44,7 @@ public:
 
 private slots:
 	void onVMStarting();
-	void onVMPaused();
+	void onVMPaused(int breakpoint_cpu, bool stepping, bool core_paused);
 	void onVMResumed();
 	void onVMStopped();
 

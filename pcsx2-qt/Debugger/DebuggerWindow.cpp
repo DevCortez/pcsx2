@@ -9,7 +9,7 @@
 
 #include "DebugTools/DebugInterface.h"
 #include "DebugTools/Breakpoints.h"
-#include "DebugTools/MIPSAnalyst.h"
+#include "DebuggerStep.h"
 #include "DebugTools/MipsStackWalk.h"
 #include "DebugTools/SymbolImporter.h"
 #include "QtHost.h"
@@ -100,7 +100,7 @@ DebuggerWindow::DebuggerWindow(QWidget* parent)
 		onVMStarting();
 
 		if (QtHost::IsVMPaused())
-			onVMPaused();
+			onVMPaused(0, false, false);
 		else
 			onVMResumed();
 	}
@@ -358,7 +358,7 @@ void DebuggerWindow::onVMStarting()
 	m_ui.actionReset->setEnabled(true);
 }
 
-void DebuggerWindow::onVMPaused()
+void DebuggerWindow::onVMPaused(int breakpoint_cpu, bool stepping, bool core_paused)
 {
 	m_ui.actionRun->setText(tr("Run"));
 	m_ui.actionRun->setIcon(QIcon::fromTheme(QStringLiteral("play-line")));
@@ -366,36 +366,10 @@ void DebuggerWindow::onVMPaused()
 	m_ui.actionStepOver->setEnabled(true);
 	m_ui.actionStepOut->setEnabled(true);
 
-	if (CBreakPoints::GetBreakpointTriggered())
-	{
-		// Select a layout tab corresponding to the CPU that triggered the
-		// breakpoint and make it start blinking unless said breakpoint was
-		// generated as a result of stepping.
-		const BreakPointCpu cpu_type = CBreakPoints::GetBreakpointTriggeredCpu();
-		if (cpu_type == BREAKPOINT_EE || cpu_type == BREAKPOINT_IOP)
-		{
-			DebugInterface& cpu = DebugInterface::get(cpu_type);
-			bool blink_tab = !CBreakPoints::IsSteppingBreakPoint(cpu_type, cpu.getPC());
-			m_dock_manager->switchToLayoutWithCPU(cpu_type, blink_tab);
-		}
-
-		Host::RunOnCPUThread([] {
-			CBreakPoints::ClearTemporaryBreakPoints();
-			CBreakPoints::SetBreakpointTriggered(false, BREAKPOINT_IOP_AND_EE);
-
-			// Our current PC is on a breakpoint.
-			// When we run the core again, we want to skip this breakpoint and run.
-			CBreakPoints::SetSkipFirst(BREAKPOINT_EE, r5900Debug.getPC());
-			CBreakPoints::SetSkipFirst(BREAKPOINT_IOP, r3000Debug.getPC());
-		});
-	}
-
-	// Stops us from telling the disassembly view to jump somwhere because
-	// breakpoint code paused the core.
-	if (!CBreakPoints::GetCorePaused())
+	if (breakpoint_cpu == BREAKPOINT_EE || breakpoint_cpu == BREAKPOINT_IOP)
+		m_dock_manager->switchToLayoutWithCPU(static_cast<BreakPointCpu>(breakpoint_cpu), !stepping);
+	if (!core_paused)
 		emit onVMActuallyPaused();
-	else
-		CBreakPoints::SetCorePaused(false);
 }
 
 void DebuggerWindow::onVMResumed()
@@ -455,32 +429,7 @@ void DebuggerWindow::onStepInto()
 	// Allow the cpu to skip this pc if it is a breakpoint
 	CBreakPoints::SetSkipFirst(cpu->getCpuType(), cpu->getPC());
 
-	const u32 pc = cpu->getPC();
-	const MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu, pc);
-
-	u32 bpAddr = pc + 0x4; // Default to the next instruction
-
-	if (info.isBranch)
-	{
-		if (!info.isConditional)
-		{
-			bpAddr = info.branchTarget;
-		}
-		else
-		{
-			if (info.conditionMet)
-			{
-				bpAddr = info.branchTarget;
-			}
-			else
-			{
-				bpAddr = pc + (2 * 4); // Skip branch delay slot
-			}
-		}
-	}
-
-	if (info.isSyscall)
-		bpAddr = info.branchTarget; // Syscalls are always taken
+	const u32 bpAddr = DebuggerStep::Target(*cpu, false);
 
 	Host::RunOnCPUThread([cpu, bpAddr] {
 		CBreakPoints::AddBreakPoint(cpu->getCpuType(), bpAddr, true, true, true);
@@ -499,38 +448,7 @@ void DebuggerWindow::onStepOver()
 	if (!cpu->isAlive() || !cpu->isCpuPaused())
 		return;
 
-	const u32 pc = cpu->getPC();
-	const MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu, pc);
-
-	u32 bpAddr = pc + 0x4; // Default to the next instruction
-
-	if (info.isBranch)
-	{
-		if (!info.isConditional)
-		{
-			if (info.isLinkedBranch) // jal, jalr
-			{
-				// it's a function call with a delay slot - skip that too
-				bpAddr += 4;
-			}
-			else // j, ...
-			{
-				// in case of absolute branches, set the breakpoint at the branch target
-				bpAddr = info.branchTarget;
-			}
-		}
-		else // beq, ...
-		{
-			if (info.conditionMet)
-			{
-				bpAddr = info.branchTarget;
-			}
-			else
-			{
-				bpAddr = pc + (2 * 4); // Skip branch delay slot
-			}
-		}
-	}
+	const u32 bpAddr = DebuggerStep::Target(*cpu, true);
 
 	Host::RunOnCPUThread([cpu, bpAddr] {
 		CBreakPoints::AddBreakPoint(cpu->getCpuType(), bpAddr, true, true, true);

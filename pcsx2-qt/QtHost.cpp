@@ -8,6 +8,8 @@
 #include "LogWindow.h"
 #include "MainWindow.h"
 #include "QtHost.h"
+#include "MCPBridge.h"
+#include "DebugTools/Breakpoints.h"
 #include "QtProgressCallback.h"
 #include "QtUtils.h"
 #include "SetupWizardDialog.h"
@@ -934,6 +936,7 @@ void Host::RequestResizeHostDisplay(s32 width, s32 height)
 
 void Host::OnVMStarting()
 {
+	MCPBridge::OnVMStarting();
 	g_emu_thread->stopBackgroundControllerPollTimer();
 	emit g_emu_thread->onVMStarting();
 }
@@ -946,6 +949,7 @@ void Host::OnVMStarted()
 
 void Host::OnVMDestroyed()
 {
+	MCPBridge::OnVMDestroyed();
 	emit g_emu_thread->onVMStopped();
 	g_emu_thread->startBackgroundControllerPollTimer();
 }
@@ -953,7 +957,24 @@ void Host::OnVMDestroyed()
 void Host::OnVMPaused()
 {
 	g_emu_thread->startBackgroundControllerPollTimer();
-	emit g_emu_thread->onVMPaused();
+	const int type = CBreakPoints::GetBreakpointTriggered() ? static_cast<int>(CBreakPoints::GetBreakpointTriggeredCpu()) : 0;
+	bool stepping = false;
+	if (type)
+	{
+		if (type == BREAKPOINT_EE || type == BREAKPOINT_IOP)
+		{
+			auto& cpu = DebugInterface::get(static_cast<BreakPointCpu>(type));
+			stepping = CBreakPoints::IsSteppingBreakPoint(cpu.getCpuType(), cpu.getPC());
+		}
+		CBreakPoints::ClearTemporaryBreakPoints();
+		CBreakPoints::SetBreakpointTriggered(false);
+		for (const BreakPointCpu cpu : DEBUG_CPUS)
+			CBreakPoints::SetSkipFirst(cpu, DebugInterface::get(cpu).getPC());
+	}
+	const bool core_paused = CBreakPoints::GetCorePaused();
+	CBreakPoints::SetCorePaused(false);
+	MCPBridge::OnVMPaused(type, stepping);
+	emit g_emu_thread->onVMPaused(type, stepping, core_paused);
 }
 
 void Host::OnVMResumed()
@@ -972,6 +993,7 @@ void Host::OnVMResumed()
 void Host::OnGameChanged(const std::string& title, const std::string& elf_override, const std::string& disc_path,
 	const std::string& disc_serial, u32 disc_crc, u32 current_crc)
 {
+	MCPBridge::OnGameChanged();
 	emit g_emu_thread->onGameChanged(QString::fromStdString(title), QString::fromStdString(elf_override),
 		QString::fromStdString(disc_path), QString::fromStdString(disc_serial), disc_crc, current_crc);
 }
@@ -2524,6 +2546,7 @@ int main(int argc, char* argv[])
 	// Start up the CPU thread.
 	QtHost::HookSignals();
 	EmuThread::start();
+	MCPBridge::Start();
 
 	// Optionally run setup wizard.
 	int result;
@@ -2536,6 +2559,7 @@ int main(int argc, char* argv[])
 	// Create all window objects, the emuthread might still be starting up at this point.
 	g_main_window = new MainWindow();
 	g_main_window->initialize();
+	MCPBridge::OnUIReady();
 
 	// When running in batch mode, ensure game list is loaded, but don't scan for any new files.
 	if (!s_batch_mode)
@@ -2572,6 +2596,7 @@ int main(int argc, char* argv[])
 	result = app.exec();
 
 shutdown_and_exit:
+	MCPBridge::Stop();
 	// Shutting down.
 	EmuThread::stop();
 	if (g_main_window)

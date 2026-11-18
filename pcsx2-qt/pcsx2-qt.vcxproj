@@ -177,6 +177,7 @@
     <ClCompile Include="CoverDownloadDialog.cpp" />
     <ClCompile Include="DisplayWidget.cpp" />
     <ClCompile Include="ShortcutCreationDialog.cpp" />
+    <ClCompile Include="MCPBridge.cpp" />
     <ClCompile Include="QtHost.cpp" />
     <ClCompile Include="MainWindow.cpp" />
     <ClCompile Include="PrecompiledHeader.cpp">
@@ -241,6 +242,7 @@
     <QtMoc Include="Debugger\AnalysisOptionsDialog.h" />
     <QtMoc Include="Debugger\DebuggerEvents.h" />
     <QtMoc Include="Debugger\DebuggerView.h" />
+    <ClInclude Include="Debugger\DebuggerStep.h" />
     <QtMoc Include="Debugger\DebuggerWindow.h" />
     <QtMoc Include="Debugger\DisassemblyView.h" />
     <QtMoc Include="Debugger\RegisterView.h" />
@@ -273,6 +275,7 @@
     <ClInclude Include="Settings\MemoryCardConvertWorker.h" />
     <QtMoc Include="Settings\OsdFontPickerDialog.h" />
     <ClInclude Include="SettingWidgetBinder.h" />
+    <ClInclude Include="MCPBridge.h" />
     <QtMoc Include="QtHost.h" />
     <ClInclude Include="PrecompiledHeader.h" />
     <QtMoc Include="AboutDialog.h" />

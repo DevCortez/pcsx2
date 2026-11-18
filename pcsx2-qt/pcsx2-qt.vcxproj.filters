@@ -41,6 +41,7 @@
   <ItemGroup>
     <ClCompile Include="PrecompiledHeader.cpp" />
     <ClCompile Include="AsyncDialogs.cpp" />
+    <ClCompile Include="MCPBridge.cpp" />
     <ClCompile Include="QtHost.cpp" />
     <ClCompile Include="MainWindow.cpp" />
     <ClCompile Include="$(IntDir)qrc_resources.cpp">
@@ -399,6 +400,7 @@
     <QtMoc Include="Settings\FolderSettingsWidget.h">
       <Filter>Settings</Filter>
     </QtMoc>
+    <ClInclude Include="MCPBridge.h" />
     <QtMoc Include="QtHost.h" />
     <QtMoc Include="CoverDownloadDialog.h" />
     <QtMoc Include="QtProgressCallback.h" />
@@ -425,6 +427,7 @@
     <QtMoc Include="Debugger\DebuggerView.h">
       <Filter>Debugger</Filter>
     </QtMoc>
+    <ClInclude Include="Debugger\DebuggerStep.h" />
     <QtMoc Include="Debugger\DebuggerWindow.h">
       <Filter>Debugger</Filter>
     </QtMoc>
